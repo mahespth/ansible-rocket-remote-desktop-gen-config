@@ -1,0 +1,46 @@
+{%- macro clean(value) -%}
+{{- value | default('') | string | regex_replace('[;\r\n]+', ' ') | trim -}}
+{%- endmacro -%}
+{%- set rows = ['ConnectionName;ConnectionDestination;ConnectionDescription;ConnectionUrl;ConnectionProtocol;ConnectionPort;FolderName'] -%}
+{%- for inventory_name in ansible_play_hosts_all | sort -%}
+  {%- set hv = hostvars[inventory_name] -%}
+  {%- set os_type = hv.os_type | string | lower | trim -%}
+  {%- set connection_name = hv.rocket_name | default(inventory_name) -%}
+  {%- set destination = hv.rocket_destination | default(hv.ansible_host | default(inventory_name)) -%}
+  {%- if os_type in rocket_windows_os_types -%}
+    {%- set row = clean(connection_name)
+      ~ ';' ~ clean(destination)
+      ~ ';' ~ clean(hv.rocket_description | default('Windows host'))
+      ~ ';;RDP;'
+      ~ (hv.rocket_port | default(3389) | string)
+      ~ ';' ~ clean(hv.rocket_folder | default('Windows')) -%}
+    {%- set _ = rows.append(row) -%}
+  {%- elif os_type in rocket_linux_os_types -%}
+    {%- set row = clean(connection_name)
+      ~ ';' ~ clean(destination)
+      ~ ';' ~ clean(hv.rocket_description | default('Linux host'))
+      ~ ';;SSH;'
+      ~ (hv.rocket_port | default(22) | string)
+      ~ ';' ~ clean(hv.rocket_folder | default('Linux')) -%}
+    {%- set _ = rows.append(row) -%}
+  {%- endif -%}
+
+  {%- if hv.imm_hostname is defined and (hv.imm_hostname | string | trim | length > 0) -%}
+    {%- set imm_destination = hv.imm_hostname
+      | string
+      | trim
+      | regex_replace('(?i)^https?://', '')
+      | regex_replace('/+$', '') -%}
+    {%- set imm_name = hv.rocket_imm_name | default(connection_name ~ ' - IMM') -%}
+    {%- set imm_url = hv.imm_url | default('https://' ~ imm_destination) -%}
+    {%- set row = clean(imm_name)
+      ~ ';' ~ clean(imm_destination)
+      ~ ';' ~ clean(hv.rocket_imm_description | default('Hardware management interface'))
+      ~ ';' ~ clean(imm_url)
+      ~ ';' ~ rocket_https_protocol
+      ~ ';' ~ (hv.imm_port | default(443) | string)
+      ~ ';' ~ clean(hv.rocket_imm_folder | default('Hardware\\IMM')) -%}
+    {%- set _ = rows.append(row) -%}
+  {%- endif -%}
+{%- endfor -%}
+{{ rows | join('\n') }}

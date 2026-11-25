@@ -1,0 +1,66 @@
+---
+- name: Generate Rocket Remote Desktop CSV from Ansible inventory
+  hosts: all
+  gather_facts: false
+
+  vars:
+    rocket_output_dir: "{{ playbook_dir }}/output"
+    rocket_output_file: "{{ rocket_output_dir }}/rocket-connections.csv"
+
+    # os_type is normalized to lower case before matching.
+    rocket_windows_os_types:
+      - windows
+      - win
+      - windows_server
+
+    rocket_linux_os_types:
+      - linux
+      - unix
+      - rhel
+      - redhat
+      - ubuntu
+      - debian
+      - sles
+      - suse
+
+    # Rocket Remote Desktop calls browser connections HTTP/S.
+    # Override this if an exported 2026 sample uses a different token.
+    rocket_https_protocol: "HTTP/S"
+
+  tasks:
+    - name: Validate os_type for every inventory host
+      ansible.builtin.assert:
+        that:
+          - hostvars[item].os_type is defined
+          - normalized_os_type in (rocket_windows_os_types + rocket_linux_os_types)
+        fail_msg: >-
+          Host {{ item }} has a missing or unsupported os_type
+          ({{ hostvars[item].os_type | default('undefined') }}).
+        quiet: true
+      vars:
+        normalized_os_type: >-
+          {{ hostvars[item].os_type | default('') | string | lower | trim }}
+      loop: "{{ ansible_play_hosts_all | sort }}"
+      run_once: true
+      delegate_to: localhost
+
+    - name: Create output directory
+      ansible.builtin.file:
+        path: "{{ rocket_output_dir }}"
+        state: directory
+        mode: "0750"
+      run_once: true
+      delegate_to: localhost
+
+    - name: Render Rocket Remote Desktop import CSV
+      ansible.builtin.template:
+        src: templates/rocket_connections.csv.j2
+        dest: "{{ rocket_output_file }}"
+        mode: "0640"
+      run_once: true
+      delegate_to: localhost
+
+    - name: Show generated file
+      ansible.builtin.debug:
+        msg: "Generated {{ rocket_output_file }}"
+      run_once: true

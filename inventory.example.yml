@@ -1,0 +1,23 @@
+---
+all:
+  hosts:
+    win-app-01:
+      ansible_host: win-app-01.example.net
+      os_type: windows
+      rocket_folder: Production\Windows
+      imm_hostname: imm-win-app-01.example.net
+
+    lin-db-01:
+      ansible_host: lin-db-01.example.net
+      os_type: linux
+      rocket_folder: Production\Linux
+      imm_hostname: imm-lin-db-01.example.net
+      imm_port: 443
+
+    lin-web-01:
+      ansible_host: 192.0.2.30
+      os_type: rhel
+      rocket_name: Web server 01
+      rocket_description: Production web server
+      rocket_port: 22
+      rocket_folder: Production\Linux\Web
